@@ -3,129 +3,379 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NCshift : console du sprint 2</title>
+<title>NCshift · console de démo</title>
 <style>
-  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --dim:#94a3b8; --ok:#34d399; --warn:#fbbf24; --err:#f87171; }
+  :root {
+    --bg:#f4f6fb; --card:#ffffff; --line:#e4e8f1; --line-2:#d5dbe8;
+    --txt:#1c2434; --dim:#6b7690; --dim-2:#96a0b8;
+    --accent:#4f46e5; --accent-soft:#eef0ff;
+    --ok:#0f9d58; --ok-soft:#e2f6ec; --warn:#b45309; --warn-soft:#fdf0d7; --err:#c02626; --err-soft:#fde7e7;
+    --info:#0369a1; --info-soft:#e0f2fe; --violet:#6d28d9; --violet-soft:#ede9fe;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:ui-sans-serif,system-ui,sans-serif; background:var(--bg); color:var(--txt); }
-  header { padding:20px 28px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
-  h1 { font-size:18px; margin:0; }
-  .sub { color:var(--dim); font-size:12px; }
-  main { display:grid; grid-template-columns:1.2fr 1fr; gap:16px; padding:20px 28px; max-width:1400px; margin:0 auto; }
-  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
-  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 10px; }
+  body { margin:0; font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--txt); font-size:14px; }
+  h1,h2,h3 { margin:0; }
+  button { font:inherit; cursor:pointer; }
+
+  /* ---------- En-tête ---------- */
+  header.topbar { background:var(--card); border-bottom:1px solid var(--line); padding:14px 28px; display:flex; justify-content:space-between; align-items:center; gap:16px; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .logo { width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; display:grid; place-items:center; font-weight:700; font-size:18px; }
+  .brand h1 { font-size:17px; font-weight:650; letter-spacing:-.01em; }
+  .brand .sub { color:var(--dim); font-size:12px; margin-top:2px; }
+  .meta { display:flex; align-items:center; gap:14px; color:var(--dim); font-size:12px; }
+  .meta .dot { width:8px; height:8px; border-radius:50%; background:var(--dim-2); display:inline-block; margin-right:6px; }
+  .meta .dot.on { background:#22c55e; }
+  .meta .dot.off { background:var(--err); }
+  .meta .horloge { font-variant-numeric:tabular-nums; }
+
+  /* ---------- Cartes de synthèse ---------- */
+  .stats { max-width:1280px; margin:20px auto 0; padding:0 28px; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; }
+  .stat .label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); font-weight:600; }
+  .stat .value { font-size:26px; font-weight:700; margin-top:6px; letter-spacing:-.02em; }
+  .stat .hint { color:var(--dim-2); font-size:11px; margin-top:2px; }
+  .stat.total .value { color:var(--accent); }
+
+  /* ---------- Grille principale ---------- */
+  main { max-width:1280px; margin:16px auto 40px; padding:0 28px; display:grid; grid-template-columns:1.55fr 1fr; gap:14px; align-items:start; }
+  section.panel { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; }
+  .panel-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+  .panel-head h2 { font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--dim); font-weight:650; }
+  .panel-head span { font-size:11px; color:var(--dim-2); }
+
+  /* ---------- Zone de dépôt ---------- */
+  .dropzone { border:1.5px dashed var(--line-2); border-radius:10px; padding:16px; display:flex; align-items:center; gap:14px; cursor:pointer; transition:.15s; margin-bottom:12px; color:var(--dim); }
+  .dropzone:hover, .dropzone.drag { border-color:var(--accent); background:var(--accent-soft); }
+  .dropzone .icon { width:34px; height:34px; border-radius:8px; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; flex:none; }
+  .dropzone b { color:var(--txt); font-weight:600; }
+  .dropzone .formats { font-size:11px; color:var(--dim-2); margin-top:2px; }
+  .dropzone input { display:none; }
+  #depot-messages { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .msg { display:flex; gap:8px; align-items:flex-start; font-size:12.5px; padding:8px 10px; border-radius:8px; }
+  .msg.ok { background:var(--ok-soft); color:var(--ok); }
+  .msg.warn { background:var(--warn-soft); color:var(--warn); }
+  .msg.err { background:var(--err-soft); color:var(--err); }
+  .msg::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor; flex:none; margin-top:5px; }
+  .msg b { font-weight:650; }
+
+  /* ---------- Table des factures ---------- */
+  .table-wrap { overflow:auto; max-height:58vh; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
-  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--dim); font-weight:500; }
-  .badge { display:inline-block; padding:1px 8px; border-radius:99px; font-size:11px; border:1px solid var(--line); }
-  .recue {color:var(--dim);} .extraite{color:#93c5fd;} .controlee{color:#93c5fd;}
-  .a_valider{color:var(--warn);} .validee{color:var(--ok);} .exportee{color:var(--ok);} .payee{color:var(--ok);} .rejetee{color:var(--err);}
-  .mono { font-family:ui-monospace,monospace; font-size:11px; color:var(--dim); }
-  #journal div { padding:7px 0; border-bottom:1px solid var(--line); font-size:12px; }
-  .upload { margin-top:10px; display:flex; gap:8px; align-items:center; font-size:13px; color:var(--dim); flex-wrap:wrap; }
-  input[type=file] { color:var(--dim); font-size:12px; }
-  button { background:#2563eb; color:#fff; border:0; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px; }
-  .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
-  .ttc { text-align:right; white-space:nowrap; }
+  th { text-align:left; padding:8px 10px; color:var(--dim); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--card); z-index:1; }
+  td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tbody tr { cursor:pointer; transition:background .1s; }
+  tbody tr:hover { background:#f7f8fd; }
+  td.mono, .mono { font-family:ui-monospace,Consolas,monospace; font-size:11px; color:var(--dim-2); }
+  .nom-fichier { max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:bottom; }
+  .ttc { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .ttc .devise { color:var(--dim-2); font-size:11px; }
+
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .pill.type { background:#f1f3f9; color:var(--dim); }
+  .pill.recue { background:#eef1f6; color:#5b6478; }
+  .pill.extraite, .pill.controlee { background:var(--info-soft); color:var(--info); }
+  .pill.a_valider { background:var(--warn-soft); color:var(--warn); }
+  .pill.validee, .pill.exportee { background:var(--ok-soft); color:var(--ok); }
+  .pill.payee { background:#d1fae5; color:#065f46; }
+  .pill.rejetee { background:var(--err-soft); color:var(--err); }
+  .pill.score { background:var(--ok-soft); color:var(--ok); }
+  .pill.score.bas { background:var(--warn-soft); color:var(--warn); }
+  .pill.terminal { background:#f1f3f9; color:var(--dim-2); font-weight:500; }
+
+  button.demo { background:transparent; border:1px solid var(--line-2); border-radius:7px; padding:4px 9px; font-size:11.5px; color:var(--dim); transition:.12s; }
+  button.demo:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+
+  .vide { padding:26px 10px; text-align:center; color:var(--dim-2); font-size:12.5px; display:none; }
+
+  /* ---------- Journal ---------- */
+  #journal { display:flex; flex-direction:column; }
+  .jline { display:flex; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line); font-size:12px; align-items:flex-start; }
+  .jline:last-child { border-bottom:0; }
+  .jdot { width:8px; height:8px; border-radius:50%; background:var(--dim-2); flex:none; margin-top:4px; }
+  .jdot.ok { background:#22c55e; } .jdot.err { background:var(--err); } .jdot.warn { background:#f59e0b; }
+  .jdot.info { background:#38bdf8; } .jdot.vio { background:#a78bfa; }
+  .jbody { flex:1; min-width:0; }
+  .jligne1 { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .jevent { font-weight:650; font-size:12px; }
+  .jtrans { color:var(--dim); }
+  .jmeta { color:var(--dim-2); font-size:10.5px; margin-top:2px; font-family:ui-monospace,monospace; }
+
+  /* ---------- Fiche facture (modale) ---------- */
+  #voile { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:10; }
+  #voile.ouvert { display:flex; }
+  .fiche { background:var(--card); border-radius:14px; width:min(720px,100%); max-height:88vh; overflow:auto; box-shadow:0 20px 45px rgba(15,23,42,.25); }
+  .fiche-head { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:12px; position:sticky; top:0; background:var(--card); z-index:2; }
+  .fiche-head h3 { font-size:15px; display:flex; gap:10px; align-items:center; }
+  .fiche-head .fermer { background:#f1f3f9; border:0; border-radius:8px; padding:6px 10px; color:var(--dim); font-size:12px; }
+  .fiche-head .fermer:hover { color:var(--err); }
+  .fiche-body { padding:18px 20px; }
+  .grille { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .champ .label { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim-2); font-weight:600; }
+  .champ .valeur { margin-top:3px; font-size:13.5px; font-weight:550; font-variant-numeric:tabular-nums; }
+  .champ .valeur.na { color:var(--dim-2); font-weight:400; }
+  .fiche h4 { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:20px 0 6px; }
+  .audit-mini .jline { font-size:11.5px; }
+
+  footer.bottom { text-align:center; color:var(--dim-2); font-size:11px; padding:0 28px 30px; }
+
+  @media (max-width:980px) {
+    .stats { grid-template-columns:repeat(2,1fr); }
+    main { grid-template-columns:1fr; }
+    .grille { grid-template-columns:repeat(2,1fr); }
+  }
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>NCshift : console sprint 2 (ingestion, extraction, audit)</h1>
-    <div class="sub">Démo : déposez une facture ; le XML Factur-X est extrait, noté, et une facture incertaine part en validation humaine.</div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">N</div>
+    <div>
+      <h1>NCshift <span style="font-weight:400;color:var(--dim)">· de la facture au paiement</span></h1>
+      <div class="sub">Console de démonstration · sprint 2 : ingestion, extraction Factur-X, notation</div>
+    </div>
   </div>
-  <div class="sub" id="horloge"></div>
+  <div class="meta">
+    <span id="api-etat"><span class="dot"></span>API…</span>
+    <span class="horloge" id="horloge"></span>
+  </div>
 </header>
+
+<div class="stats">
+  <div class="stat total"><div class="label">Factures dans le système</div><div class="value" id="st-total">0</div><div class="hint">tous statuts confondus</div></div>
+  <div class="stat"><div class="label">En attente d'extraction</div><div class="value" id="st-recue">0</div><div class="hint">statut « recue » (OCR au sprint 2.5)</div></div>
+  <div class="stat"><div class="label">À valider par un humain</div><div class="value" id="st-valider">0</div><div class="hint">score sous le seuil de confiance</div></div>
+  <div class="stat"><div class="label">Extractions fiables</div><div class="value" id="st-fiables">0</div><div class="hint">score ≥ 85 %</div></div>
+</div>
+
 <main>
-  <section>
-    <h2>Factures (machine à états)</h2>
-    <table id="factures">
-      <thead><tr><th>Reçue le</th><th>Fichier</th><th>Type</th><th>N° facture</th><th>TTC</th><th>Score</th><th>Statut</th><th>Actions (démo)</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="upload">
+  <section class="panel">
+    <div class="panel-head"><h2>Factures</h2><span>cliquez une ligne pour la fiche complète</span></div>
+
+    <div class="dropzone" id="dropzone">
+      <div class="icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <div>
+        <b>Glissez vos factures ici</b> ou cliquez pour choisir un fichier<br>
+        <span class="formats">XML Factur-X · PDF/A-3 · PDF scanné · n'importe quoi : rien ne casse, tout est tracé</span>
+      </div>
       <input type="file" id="fichier" multiple>
-      <button onclick="televerser()">Simuler l'arrivée (canal api)</button>
-      <span id="upload-msg"></span>
+    </div>
+
+    <div id="depot-messages"></div>
+
+    <div class="table-wrap">
+      <table id="factures">
+        <thead><tr>
+          <th>Reçue le</th><th>Fichier</th><th>Type</th><th>N° facture</th>
+          <th style="text-align:right">TTC</th><th>Score</th><th>Statut</th><th>Démo</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="vide" id="vide-factures">Aucune facture pour l'instant : déposez un fichier juste au-dessus.</div>
     </div>
   </section>
-  <section>
-    <h2>Journal d'audit (50 dernières lignes, append-only)</h2>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Journal d'audit</h2><span>50 dernières lignes · append-only</span></div>
     <div id="journal"></div>
+    <div class="vide" id="vide-journal">Le journal est vide : chaque action du système s'inscrira ici.</div>
   </section>
 </main>
+
+<footer class="bottom">Console de démonstration locale · les transitions manuelles ci-dessus disparaîtront avec l'app de validation (sprint 4) · données persistantes</footer>
+
+<div id="voile">
+  <div class="fiche" id="fiche"></div>
+</div>
+
 <script>
 const $ = (s) => document.querySelector(s);
+const SEUIL = 0.85;
+const SUITE = {recue:'extraite', extraite:'controlee', controlee:'a_valider', a_valider:'validee', validee:'exportee', exportee:'payee'};
+const COULEUR_EVENEMENT = {extraction:'ok', extraction_echouee:'err', score_faible:'warn', doublon_ignore:'vio', fichier_recu:'info', recue:'info'};
+const fr = (n) => n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const eur = (v, d) => `${fr(v)} <span class="devise">${d || 'EUR'}</span>`;
+const heure = (iso) => iso.replace('T',' ').slice(0,16);
+
+function pillScore(score) {
+  if (score == null) return '<span class="pill terminal">non notée</span>';
+  const bas = score < SEUIL;
+  return `<span class="pill score${bas ? ' bas' : ''}">${Math.round(score * 100)} %</span>`;
+}
+
+/* ---------- Factures ---------- */
 async function rafraichir() {
-  const [factures, journal] = await Promise.all([fetch('/api/factures').then(r=>r.json()), fetch('/api/journal').then(r=>r.json())]);
+  let factures, journal;
+  try {
+    [factures, journal] = await Promise.all([
+      fetch('/api/factures').then(r=>{ if(!r.ok) throw 0; return r.json(); }),
+      fetch('/api/journal').then(r=>r.json()),
+    ]);
+    apiEtat(true);
+  } catch (e) { apiEtat(false); return; }
+
+  dessinerStats(factures);
+  dessinerTable(factures);
+  dessinerJournal(journal, $('#journal'), $('#vide-journal'));
+}
+
+function apiEtat(ok) {
+  $('#api-etat').innerHTML = `<span class="dot ${ok ? 'on' : 'off'}"></span>${ok ? 'API en ligne' : 'API injoignable'}`;
+}
+
+function dessinerStats(factures) {
+  $('#st-total').textContent = factures.length;
+  $('#st-recue').textContent = factures.filter(f=>f.statut==='recue').length;
+  $('#st-valider').textContent = factures.filter(f=>f.statut==='a_valider').length;
+  $('#st-fiables').textContent = factures.filter(f=>f.score_confiance!=null && f.score_confiance>=SEUIL).length;
+}
+
+function dessinerTable(factures) {
   const corps = $('#factures tbody');
+  $('#vide-factures').style.display = factures.length ? 'none' : 'block';
   corps.innerHTML = '';
   for (const f of factures) {
-    const type = f.fichier ? f.fichier.type_detecte : '?';
     const tr = document.createElement('tr');
-    const suite = {recue:'extraite', extraite:'controlee', controlee:'a_valider', a_valider:'validee', validee:'exportee', exportee:'payee'}[f.statut];
-    const ttc = f.montant_ttc != null
-      ? `${f.montant_ttc.toFixed(2).replace('.', ',')} ${f.devise || ''}`.trim()
-      : '<span class="mono">dès extraction</span>';
-    const score = f.score_confiance != null
-      ? `<span class="${f.score_confiance >= 0.85 ? 'ok' : 'warn'}">${Math.round(f.score_confiance * 100)} %</span>`
-      : '<span class="mono">non notée</span>';
+    tr.dataset.id = f.id;
+    const ttc = f.montant_ttc != null ? eur(f.montant_ttc, f.devise) : '<span class="mono">après extraction</span>';
+    const numero = f.numero || '<span class="mono">…</span>';
+    const nom = f.fichier ? f.fichier.nom_fichier : '';
     tr.innerHTML = `
-      <td class="mono">${f.fichier ? f.fichier.recu_le.replace('T',' ').slice(0,19) : ''}</td>
-      <td>${f.fichier ? f.fichier.nom_fichier : ''}<div class="mono">${f.id.slice(0,8)}</div></td>
-      <td><span class="badge">${type}</span></td>
-      <td>${f.numero ? f.numero : '<span class="mono">…</span>'}</td>
+      <td class="mono">${f.fichier ? heure(f.fichier.recu_le) : ''}</td>
+      <td><span class="nom-fichier" title="${nom.replace(/"/g,'&quot;')}">${nom}</span><div class="mono">${f.id.slice(0,8)}</div></td>
+      <td><span class="pill type">${f.fichier ? f.fichier.type_detecte : '?'}</span></td>
+      <td>${numero}</td>
       <td class="ttc">${ttc}</td>
-      <td>${score}</td>
-      <td><span class="badge ${f.statut}">${f.statut}</span></td>
-      <td>${suite ? `<button onclick="avancer('${f.id}','${suite}')">→ ${suite}</button>` : '<span class="mono">terminal</span>'}</td>`;
+      <td>${pillScore(f.score_confiance)}</td>
+      <td><span class="pill ${f.statut}">${f.statut}</span></td>
+      <td>${SUITE[f.statut] ? `<button class="demo" data-suite="${SUITE[f.statut]}">→ ${SUITE[f.statut]}</button>` : '<span class="mono">terminal</span>'}</td>`;
     corps.appendChild(tr);
   }
-  const j = $('#journal');
-  j.innerHTML = '';
-  for (const l of journal) {
-    const d = document.createElement('div');
-    d.innerHTML = `<span class="mono">${l.created_at.replace('T',' ').slice(11,19)}</span>
-      <span class="badge ${l.nouveau_statut||''}">${l.evenement}</span>
-      ${l.ancien_statut ? `${l.ancien_statut} → ${l.nouveau_statut}` : (l.nouveau_statut||'')}
-      <span class="mono">${l.acteur}</span>`;
-    j.appendChild(d);
-  }
 }
+
+$('#factures').addEventListener('click', async (e) => {
+  const bouton = e.target.closest('button.demo');
+  if (bouton) { e.stopPropagation(); avancer(bouton.closest('tr').dataset.id, bouton.dataset.suite); return; }
+  const tr = e.target.closest('tr[data-id]');
+  if (tr) ouvrirFiche(tr.dataset.id);
+});
+
 async function avancer(id, statut) {
   const reponse = await fetch(`/api/factures/${id}/statut?nouveau_statut=${statut}`, {method:'POST'});
-  if (!reponse.ok) { alert((await reponse.json()).detail || `Erreur ${reponse.status}`); }
+  if (!reponse.ok) { try { alert((await reponse.json()).detail); } catch(_) { alert(`Erreur ${reponse.status}`); } }
   rafraichir();
 }
-async function televerser() {
-  const fichiers = $('#fichier').files;
-  const msg = $('#upload-msg'); msg.textContent = '';
-  if (!fichiers.length) { msg.innerHTML = '<span class="err">Choisissez d’abord un fichier.</span>'; return; }
+
+/* ---------- Journal ---------- */
+function dessinerJournal(lignes, cible, vide) {
+  cible.innerHTML = '';
+  vide.style.display = lignes.length ? 'none' : 'block';
+  for (const l of lignes) {
+    const d = document.createElement('div');
+    d.className = 'jline';
+    const trans = l.ancien_statut ? `${l.ancien_statut} → ${l.nouveau_statut}` : (l.nouveau_statut || '');
+    d.innerHTML = `
+      <span class="jdot ${COULEUR_EVENEMENT[l.evenement] || ''}"></span>
+      <div class="jbody">
+        <div class="jligne1"><span class="jevent">${l.evenement}</span>${trans ? `<span class="jtrans">${trans}</span>` : ''}</div>
+        <div class="jmeta">${l.created_at.replace('T',' ').slice(11,19)} · ${l.acteur} · ${l.entite_type} ${String(l.entite_id).slice(0,8)}</div>
+      </div>`;
+    cible.appendChild(d);
+  }
+}
+
+/* ---------- Dépôt de fichiers ---------- */
+function messageDepot(texte, classe) {
+  const zone = $('#depot-messages');
+  const m = document.createElement('div');
+  m.className = `msg ${classe}`;
+  m.innerHTML = texte;
+  zone.prepend(m);
+  while (zone.children.length > 6) zone.lastChild.remove();
+}
+
+async function deposer(fichiers) {
+  if (!fichiers || !fichiers.length) return;
   for (const f of fichiers) {
     const corps = new FormData(); corps.append('fichier', f);
-    let r, j = null;
+    let j = null;
     try {
-      r = await fetch('/api/fichiers', {method:'POST', body:corps});
-      j = await r.json().catch(() => null);
+      const r = await fetch('/api/fichiers', {method:'POST', body:corps});
+      j = await r.json().catch(()=>null);
+      if (!r.ok && j && j.detail) { messageDepot(`<b>${f.name}</b> : refusé par le serveur (${j.detail})`, 'err'); j = null; continue; }
     } catch (e) { j = null; }
-    if (j === null) { msg.innerHTML += `<span class="err">${f.name} : serveur injoignable ou réponse illisible</span> ; `; continue; }
-    let suite = `${f.name} : ${j.nouveau ? 'ingéré' : 'doublon ignoré'}`;
+    if (j === null) { messageDepot(`<b>${f.name}</b> : serveur injoignable ou réponse illisible`, 'err'); continue; }
+    if (!j.nouveau) { messageDepot(`<b>${f.name}</b> : doublon ignoré (contenu déjà connu), rien de neuf`, 'warn'); continue; }
+    let texte = `<b>${f.name}</b> : ingéré${j.facture_id ? '' : ' (pas une facture : journalisé seulement)'}`;
     if (j.extraction) {
       if (j.extraction.reussie) {
-        suite += ` → extrait (${j.extraction.methode}, score ${Math.round(j.extraction.score * 100)} %, statut <b>${j.extraction.statut}</b>)`;
-        if (j.extraction.score < 0.85) suite += ` <span class="warn">sous le seuil : validation humaine</span>`;
+        texte = `<b>${f.name}</b> : facture extraite («${j.extraction.methode} », score ${Math.round(j.extraction.score * 100)} %), statut <b>${j.extraction.statut}</b>`;
+        if (j.extraction.score < SEUIL) texte += ' : sous le seuil, elle part en validation humaine';
       } else {
-        suite += ` → <span class="warn">extraction échouée (${j.extraction.raison})</span>`;
+        texte = `<b>${f.name}</b> : ingéré, mais extraction échouée (${j.extraction.raison}) : la facture reste « recue »`;
       }
+    } else if (j.facture_id) {
+      texte = `<b>${f.name}</b> : ingéré, facture créée « recue » : extraction automatique impossible pour ce format (OCR au sprint 2.5)`;
     }
-    msg.innerHTML += suite + ' ; ';
+    messageDepot(texte, 'ok');
   }
-  $('#fichier').value = '';
   rafraichir();
 }
+
+const dropzone = $('#dropzone'), input = $('#fichier');
+dropzone.addEventListener('click', () => input.click());
+input.addEventListener('change', () => { deposer([...input.files]); input.value = ''; });
+['dragover','dragenter'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+dropzone.addEventListener('drop', e => deposer([...e.dataTransfer.files]));
+
+/* ---------- Fiche facture ---------- */
+const NA = (t) => `<span class="valeur na">${t}</span>`;
+function champ(label, valeurHtml) { return `<div class="champ"><div class="label">${label}</div>${valeurHtml}</div>`; }
+
+async function ouvrirFiche(id) {
+  let d;
+  try {
+    const r = await fetch(`/api/factures/${id}`);
+    if (!r.ok) throw 0;
+    d = await r.json();
+  } catch (e) { alert('Fiche introuvable (API injoignable ?)'); return; }
+
+  $('#fiche').innerHTML = `
+    <div class="fiche-head">
+      <h3>${d.numero ? d.numero : 'Facture sans numéro'} <span class="pill ${d.statut}">${d.statut}</span></h3>
+      <button class="fermer" id="fermer-fiche">Fermer ✕</button>
+    </div>
+    <div class="fiche-body">
+      <div class="grille">
+        ${champ('Numéro', d.numero ? `<span class="valeur">${d.numero}</span>` : NA('pas encore extrait'))}
+        ${champ('Date de facture', d.date_facture ? `<span class="valeur">${d.date_facture}</span>` : NA('non renseignée'))}
+        ${champ('Échéance', d.date_echeance ? `<span class="valeur">${d.date_echeance}</span>` : NA('non renseignée'))}
+        ${champ('Montant HT', d.montant_ht != null ? `<span class="valeur">${eur(d.montant_ht, d.devise)}</span>` : NA('non extrait'))}
+        ${champ('Montant TTC', d.montant_ttc != null ? `<span class="valeur">${eur(d.montant_ttc, d.devise)}</span>` : NA('non extrait'))}
+        ${champ('Score de confiance', d.score_confiance != null ? pillScore(d.score_confiance) : NA('non notée'))}
+      </div>
+      <h4>Fichier source</h4>
+      ${d.fichier ? `<div class="mono" style="font-size:11.5px">${d.fichier.nom_fichier} · type détecté <b>${d.fichier.type_detecte}</b> · canal ${d.fichier.canal} · reçu le ${heure(d.fichier.recu_le)} · empreinte ${d.fichier.sha256.slice(0,16)}…</div>` : '<div class="mono">fichier absent</div>'}
+      <h4>Historique d'audit (immuable)</h4>
+      <div class="audit-mini" id="audit-fiche"></div>
+    </div>`;
+  dessinerJournal(d.audit || [], $('#audit-fiche'), document.createElement('div'));
+  $('#voile').classList.add('ouvert');
+}
+
+function fermerFiche() { $('#voile').classList.remove('ouvert'); }
+$('#voile').addEventListener('click', e => { if (e.target.id === 'voile' || e.target.closest('#fermer-fiche')) fermerFiche(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fermerFiche(); });
+
+/* ---------- Boucle d'actualisation ---------- */
 setInterval(rafraichir, 5000);
-setInterval(()=> $('#horloge').textContent = new Date().toLocaleTimeString('fr-FR'), 1000);
+setInterval(() => $('#horloge').textContent = new Date().toLocaleString('fr-FR',
+  {weekday:'long', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit'}), 1000);
 rafraichir();
 </script>
 </body>
