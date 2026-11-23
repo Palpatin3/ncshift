@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NCshift : console du sprint 1</title>
+<title>NCshift : console du sprint 2</title>
 <style>
   :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0; --dim:#94a3b8; --ok:#34d399; --warn:#fbbf24; --err:#f87171; }
   * { box-sizing:border-box; }
@@ -22,17 +22,18 @@
   .a_valider{color:var(--warn);} .validee{color:var(--ok);} .exportee{color:var(--ok);} .payee{color:var(--ok);} .rejetee{color:var(--err);}
   .mono { font-family:ui-monospace,monospace; font-size:11px; color:var(--dim); }
   #journal div { padding:7px 0; border-bottom:1px solid var(--line); font-size:12px; }
-  .upload { margin-top:10px; display:flex; gap:8px; align-items:center; font-size:13px; color:var(--dim); }
+  .upload { margin-top:10px; display:flex; gap:8px; align-items:center; font-size:13px; color:var(--dim); flex-wrap:wrap; }
   input[type=file] { color:var(--dim); font-size:12px; }
   button { background:#2563eb; color:#fff; border:0; border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px; }
-  .ok { color:var(--ok); }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
+  .ttc { text-align:right; white-space:nowrap; }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>NCshift : console sprint 1 (ingestion, états, audit)</h1>
-    <div class="sub">Démo : déposez ou envoyez des fichiers, surveillez le journal append-only.</div>
+    <h1>NCshift : console sprint 2 (ingestion, extraction, audit)</h1>
+    <div class="sub">Démo : déposez une facture ; le XML Factur-X est extrait, noté, et une facture incertaine part en validation humaine.</div>
   </div>
   <div class="sub" id="horloge"></div>
 </header>
@@ -40,7 +41,7 @@
   <section>
     <h2>Factures (machine à états)</h2>
     <table id="factures">
-      <thead><tr><th>Reçue le</th><th>Fichier</th><th>Type</th><th>Statut</th><th>Actions (démo)</th></tr></thead>
+      <thead><tr><th>Reçue le</th><th>Fichier</th><th>Type</th><th>N° facture</th><th>TTC</th><th>Score</th><th>Statut</th><th>Actions (démo)</th></tr></thead>
       <tbody></tbody>
     </table>
     <div class="upload">
@@ -64,10 +65,19 @@ async function rafraichir() {
     const type = f.fichier ? f.fichier.type_detecte : '?';
     const tr = document.createElement('tr');
     const suite = {recue:'extraite', extraite:'controlee', controlee:'a_valider', a_valider:'validee', validee:'exportee', exportee:'payee'}[f.statut];
+    const ttc = f.montant_ttc != null
+      ? `${f.montant_ttc.toFixed(2).replace('.', ',')} ${f.devise || ''}`.trim()
+      : '<span class="mono">dès extraction</span>';
+    const score = f.score_confiance != null
+      ? `<span class="${f.score_confiance >= 0.85 ? 'ok' : 'warn'}">${Math.round(f.score_confiance * 100)} %</span>`
+      : '<span class="mono">non notée</span>';
     tr.innerHTML = `
       <td class="mono">${f.fichier ? f.fichier.recu_le.replace('T',' ').slice(0,19) : ''}</td>
       <td>${f.fichier ? f.fichier.nom_fichier : ''}<div class="mono">${f.id.slice(0,8)}</div></td>
       <td><span class="badge">${type}</span></td>
+      <td>${f.numero ? f.numero : '<span class="mono">…</span>'}</td>
+      <td class="ttc">${ttc}</td>
+      <td>${score}</td>
       <td><span class="badge ${f.statut}">${f.statut}</span></td>
       <td>${suite ? `<button onclick="avancer('${f.id}','${suite}')">→ ${suite}</button>` : '<span class="mono">terminal</span>'}</td>`;
     corps.appendChild(tr);
@@ -85,18 +95,33 @@ async function rafraichir() {
 }
 async function avancer(id, statut) {
   const reponse = await fetch(`/api/factures/${id}/statut?nouveau_statut=${statut}`, {method:'POST'});
-  if (!reponse.ok) { alert(await reponse.json().detail); }
+  if (!reponse.ok) { alert((await reponse.json()).detail || `Erreur ${reponse.status}`); }
   rafraichir();
 }
 async function televerser() {
   const fichiers = $('#fichier').files;
   const msg = $('#upload-msg'); msg.textContent = '';
+  if (!fichiers.length) { msg.innerHTML = '<span class="err">Choisissez d’abord un fichier.</span>'; return; }
   for (const f of fichiers) {
     const corps = new FormData(); corps.append('fichier', f);
-    const r = await fetch('/api/fichiers', {method:'POST', body:corps});
-    const j = await r.json();
-    msg.textContent += `${f.name} : ${j.nouveau ? 'ingéré' : 'doublon ignoré'} ; `;
+    let r, j = null;
+    try {
+      r = await fetch('/api/fichiers', {method:'POST', body:corps});
+      j = await r.json().catch(() => null);
+    } catch (e) { j = null; }
+    if (j === null) { msg.innerHTML += `<span class="err">${f.name} : serveur injoignable ou réponse illisible</span> ; `; continue; }
+    let suite = `${f.name} : ${j.nouveau ? 'ingéré' : 'doublon ignoré'}`;
+    if (j.extraction) {
+      if (j.extraction.reussie) {
+        suite += ` → extrait (${j.extraction.methode}, score ${Math.round(j.extraction.score * 100)} %, statut <b>${j.extraction.statut}</b>)`;
+        if (j.extraction.score < 0.85) suite += ` <span class="warn">sous le seuil : validation humaine</span>`;
+      } else {
+        suite += ` → <span class="warn">extraction échouée (${j.extraction.raison})</span>`;
+      }
+    }
+    msg.innerHTML += suite + ' ; ';
   }
+  $('#fichier').value = '';
   rafraichir();
 }
 setInterval(rafraichir, 5000);

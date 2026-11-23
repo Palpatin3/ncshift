@@ -1,7 +1,7 @@
 [project]
 name = "ncshift"
-version = "0.1.0"
-description = "NCshift : de la facture au paiement. Socle sprint 1 : ingestion, états, audit."
+version = "0.2.0"
+description = "NCshift : de la facture au paiement. Sprint 2 : extraction Factur-X, score de confiance, jeu d'or."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

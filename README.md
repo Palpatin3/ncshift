@@ -1,8 +1,10 @@
 # NCshift : de la facture au paiement
 
-Sprint 1 terminé : le socle et l'ingestion. Un fichier entrant est stocké,
-horodaté, typé, dédupliqué et tracé ; une facture n'existe qu'à travers sa
-machine à états ; chaque changement écrit une ligne d'audit immuable.
+Sprints 1 et 2 livrés : socle, ingestion, états, audit, puis extraction
+Factur-X. Un fichier entrant est stocké, horodaté, typé, dédupliqué et tracé ;
+le XML Factur-X (seul ou embarqué dans un PDF/A-3) est extrait exactement,
+noté ; une facture dont le score est sous le seuil part en validation
+humaine ; chaque changement écrit une ligne d'audit immuable.
 
 ## Démarrage rapide
 
@@ -16,29 +18,30 @@ uvicorn app.main:app --reload  # depuis backend/
 
 La console de démo : http://localhost:8000
 
-Elle montre le livrable de fin de sprint 1 : états des factures, journal
-d'audit en temps quasi réel, téléversement de fichiers (simule l'arrivée),
-boutons de transition d'état.
+Elle montre le livrable de fin de sprint 2 : états des factures avec numéro,
+TTC et score de confiance, journal d'audit en temps quasi réel,
+téléversement de fichiers (simule l'arrivée, extraction immédiate).
 
-## Scénario de démo (critère de done du sprint 1)
+## Scénario de démo (critère de done du sprint 2)
 
-1. Déposer via la console : un PDF sale (ex. scan facturier habituel), un
-   PDF avec XML Factur-X embarqué, un fichier non facture (image, doc).
-2. Montrer que chacun a son type détecté (`pdf`, `pdf_a3_facturx`, `autre`).
-3. Déposer le même PDF une seconde fois : `doublon_ignore` dans le journal,
-   aucune seconde ligne de facture.
-4. Faire avancer une facture d'un état (bouton) et montrer la ligne
-   `transition_statut` correspondante dans le journal.
-5. `docker compose restart` : rien n'a bougé, tout est persistant (critère
-   "redémarrage sans perte").
+1. Déposer via la console un PDF avec XML Factur-X embarqué (ou un XML CII
+   seul) : la facture passe direct en `extraite`, numéro et TTC affichés,
+   score 100 %, lignes `extraction` + `transition_statut` au journal.
+2. Déposer le même fichier une seconde fois : `doublon_ignore`.
+3. Déposer un XML trafiqué (montants incohérents, numéro absent) : la
+   facture reste extraite puis part en `a_valider` (`score_faible` au
+   journal, avis machine-lisibles).
+4. Déposer un PDF sale (scan) : il reste `recue`, aucune extraction
+   inventée ; c'est le boulot de l'OCR (sprint 2.5).
+5. Redémarrer : rien n'a bougé, tout est persistant.
 
-## Architecture (sprint 1)
+## Architecture (sprint 2)
 
 ```
 docker compose
 ├── api      FastAPI (/healthz, /api/*, console /)   port 8000
-├── worker   arq : poll IMAP chaque minute + watcher dossier
-├── db        PostgreSQL 16
+├── worker   arq : poll IMAP chaque minute, extraction à +30s, watcher dossier
+├── db       PostgreSQL 16
 ├── redis     Redis 7 (file arq)
 └── volume    fichierdata : fichiers bruts en dev (S3 Scaleway en prod)
 ```
@@ -52,16 +55,30 @@ Le code du backend :
 
 | Module | Rôle |
 |---|---|
-| `app/models/` | `organisation`, `fichier_source`, `facture`, `fournisseur`, `audit_log` |
+| `app/models/` | `organisation`, `fichier_source`, `facture`, `fournisseur`, `audit_log`, `extraction` |
 | `app/core/states.py` | Machine à états (`recue → … → payee`), transitions validées |
 | `app/core/audit.py` | Journal append-only, `changer_statut` = seule porte des transitions |
 | `app/ingestion/detect.py` | Type par contenu : PDF, PDF/A-3 Factur-X (XML embarqué), XML UBL/CII |
 | `app/ingestion/service.py` | Empreinte SHA-256, dédoublonnage, dépôt du brut, création facture `recue` |
-| `app/ingestion/storage.py` | Stockage des fichiers bruts : S3 (prod) ou dossier local (dev) |
+| `app/ingestion/storage.py` | Stockage des fichiers bruts : S3 (prod) ou dossier local (dev), + relecture |
 | `app/ingestion/imap_poller.py` | Boîte dédiée : lire, ingérer, marquer lu, archiver |
 | `app/ingestion/folder_watcher.py` | Dossier partagé : détection, stabilisation, ingestion |
-| `app/worker/tasks.py` | arq : cron IMAP + watchdog |
-| `app/api/` | Console minimale : lister, journal, transitions (démo) |
+| `app/extraction/` | Contrat `Extracteur`, moteur Factur-X (CII), score de confiance, orchestration |
+| `app/worker/tasks.py` | arq : cron IMAP + cron extraction + watchdog |
+| `app/api/` | Console minimale : lister, journal, transitions, dépôt + extraction (démo) |
+
+Le score de confiance (`SEUIL_CONFIANCE`, 0.85 par défaut) : chaque champ
+critique manquant (numéro, date, TTC, vendeur) multiplie le score par 0.55,
+une incohérence HT+TVA≠TTC par 0.40, un IBAN dont la clé mod-97 ne passe pas
+par 0.50. Sous le seuil, la facture extraite va en `a_valider` : la machine
+ne fait jamais semblant d'être sûre.
+
+## Jeu d'or
+
+`jeu_or/` : échantillons de factures avec résultats attendus, rejoués par
+`python jeu_or/evaluer.py` (backend installé au préalable). Chaque anomalie
+fournisseur réelle devient un échantillon : l'extraction ne régresse jamais
+silencieusement.
 
 ## Règles du socle (à ne jamais casser)
 
@@ -69,15 +86,18 @@ Le code du backend :
   `audit_log` est append-only : aucun update, aucun delete, jamais.
 - **Le même contenu deux fois = un doublon ignoré et tracé** (empreinte
   sur le contenu, pas le nom de fichier).
-- **Le type se juge sur le contenu**, jamais sur l'extension : le XML
-  Factur-X embarqué est le chemin prioritaire de l'extraction (sprint 2).
+- **Le type se juge sur le contenu**, jamais sur l'extension.
+- **Aucune donnée inventée à l'extraction** : ce qui n'est pas dans le
+  fichier reste à `NULL`, c'est le score qui décide auto ou humain.
 - **Pas de retour arrière dans la machine à états** : `payee` et
   `rejetee` sont terminaux.
 
 ## Empreinte sprint par sprint
 
-- Sprint 2 : interface `Extractor` (XML Factur-X puis OCR+LLM Mistral),
-  modèle unifié, score de confiance, jeu d'or.
+- ~~Sprint 2 : interface `Extractor` (XML Factur-X puis OCR+LLM Mistral),
+  modèle unifié, score de confiance, jeu d'or.~~ **Livré.**
+- Sprint 2.5 : OCR + LLM Mistral pour les PDF scannés, branché sur le même
+  contrat `Extracteur`.
 - Sprint 3 : imports (FEC, virements, balance), référentiel, contrôles n° 1.
 - Sprint 4 : app de validation React (rôles, file, PDF à gauche / données à droite).
 - Sprint 5 : `ExportAdapter` + SEPA pain.001.

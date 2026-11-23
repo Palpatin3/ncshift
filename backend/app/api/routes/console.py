@@ -1,4 +1,4 @@
-"""Routes API du sprint 1 : regarder l'état du système.
+"""Routes API du sprint 2 : regarder le système, déposer, extraire.
 
 Pas d'auth au sprint 1 (démo locale) ; FastAPI-Users arrive au sprint 4.
 """
@@ -12,6 +12,7 @@ from ...db import get_db
 from ...models import Facture, FichierSource, AuditLog
 from ...core.audit import changer_statut
 from ...core.org import organisation_defaut
+from ...extraction.service import extraire_facture
 from ...ingestion.service import enregistrer_fichier, ResultatIngestion
 from ...models.enums import StatutFacture
 
@@ -128,11 +129,25 @@ async def televerser_fichier(fichier: UploadFile, db: Session = Depends(get_db))
         canal="api",
         acteur="console",
     )
+    # Extraction immédiate quand un moteur sait lire ce type : le résultat
+    # (score, avis, nouveau statut) remonte à la console sans rechargement.
+    # Le worker refait de toute façon le tour des `recue` à la minute +30s :
+    # ce qui réussit ici sera simplement déjà passé.
+    extraction = None
+    if resultat.facture is not None:
+        extraction = extraire_facture(
+            db,
+            facture=resultat.facture,
+            fichier=resultat.fichier,
+            contenu=contenu,
+            acteur="console",
+        )
     db.commit()
     return {
         "nouveau": resultat.nouveau,
         "fichier": _serializer_fichier(resultat.fichier),
         "facture_id": str(resultat.facture.id) if resultat.facture else None,
+        "extraction": extraction,
     }
 
 

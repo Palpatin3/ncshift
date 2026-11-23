@@ -1,0 +1,17 @@
+{
+  "attendu": {
+    "numero": "FA-2026-001",
+    "date_facture": "2026-11-23",
+    "date_echeance": "2026-12-23",
+    "devise": "EUR",
+    "vendeur_nom": "ACME Industries SAS",
+    "vendeur_siren": "123456789",
+    "vendeur_tva": "FR90123456789",
+    "iban": "FR7630006000011234567890189",
+    "montant_ht": 200.00,
+    "montant_tva": 40.00,
+    "montant_ttc": 240.00,
+    "tva_par_taux": [{"taux": 20.0, "base": 200.0, "tva": 40.0}]
+  },
+  "score_mini": 0.85
+}

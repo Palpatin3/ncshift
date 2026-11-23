@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # Organisation par défaut (MVP : une entité par client)
     organisation_defaut: str = "pilote"
 
+    # Extraction (sprint 2) : sous ce score de confiance, une facture extraite
+    # part en `a_valider` plutôt que d'être considérée comme sûre. 0.85 : les
+    # pénalités d'un seul champ critique manquant (x0.55) passent sous le seuil.
+    seuil_confiance: float = 0.85
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
