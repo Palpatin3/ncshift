@@ -10,7 +10,7 @@ machine à états ; chaque changement écrit une ligne d'audit immuable.
 cp .env.example .env         # remplir IMAP_* ou WATCH_FOLDER au besoin
 docker compose up -d --build
 # ou, pour développer sans docker :
-make install && make test
+pip install -e "backend[dev]" && pytest backend/tests -v
 uvicorn app.main:app --reload  # depuis backend/
 ```
 
@@ -36,12 +36,17 @@ boutons de transition d'état.
 
 ```
 docker compose
-├── api      FastAPI (/healthz, /api/*, console /)         port 8000
+├── api      FastAPI (/healthz, /api/*, console /)   port 8000
 ├── worker   arq : poll IMAP chaque minute + watcher dossier
-├── db       PostgreSQL 16
-├── redis    Redis 7 (file arq)
-└── minio    S3 local (bucket ncshift)
+├── db        PostgreSQL 16
+├── redis     Redis 7 (file arq)
+└── volume    fichierdata : fichiers bruts en dev (S3 Scaleway en prod)
 ```
+
+Pas de serveur S3 local : MinIO a quitté Docker Hub en septembre 2026, et la
+démo n'en a pas besoin. Le stockage est derrière le réglage `STOCKAGE` :
+`local` (dossier monté, dev), `s3` (Scaleway, prod), `off` (tests). Le code
+ne change pas entre les deux.
 
 Le code du backend :
 
@@ -51,7 +56,8 @@ Le code du backend :
 | `app/core/states.py` | Machine à états (`recue → … → payee`), transitions validées |
 | `app/core/audit.py` | Journal append-only, `changer_statut` = seule porte des transitions |
 | `app/ingestion/detect.py` | Type par contenu : PDF, PDF/A-3 Factur-X (XML embarqué), XML UBL/CII |
-| `app/ingestion/service.py` | Empreinte SHA-256, dédoublonnage, dépôt S3, création facture `recue` |
+| `app/ingestion/service.py` | Empreinte SHA-256, dédoublonnage, dépôt du brut, création facture `recue` |
+| `app/ingestion/storage.py` | Stockage des fichiers bruts : S3 (prod) ou dossier local (dev) |
 | `app/ingestion/imap_poller.py` | Boîte dédiée : lire, ingérer, marquer lu, archiver |
 | `app/ingestion/folder_watcher.py` | Dossier partagé : détection, stabilisation, ingestion |
 | `app/worker/tasks.py` | arq : cron IMAP + watchdog |
@@ -75,10 +81,10 @@ Le code du backend :
 - Sprint 3 : imports (FEC, virements, balance), référentiel, contrôles n° 1.
 - Sprint 4 : app de validation React (rôles, file, PDF à gauche / données à droite).
 - Sprint 5 : `ExportAdapter` + SEPA pain.001.
-- Sprint 6 : durcissement (HTTPS, sauvegardes, SENTRY, RGPD, runbook).
+- Sprint 6 : durcissement (HTTPS, sauvegardes, Sentry, RGPD, runbook).
 
 ## Secrets
 
 Tout vient de l'environnement (voir `.env.example`). En prod : secrets du
-VPS, jamais dans le dépôt, jamais dans l'image. Le graph de dépendances
-image + volumes est volontairement minimal : un VPS suffit pour ~20 clients.
+VPS, jamais dans le dépôt, jamais dans l'image. Le graphe image + volumes
+est volontairement minimal : un VPS suffit pour ~20 clients.

@@ -1,0 +1,54 @@
+CORRECTIF "MinIO" : à appliquer avant de relancer docker compose
+=================================================================
+
+POURQUOI
+--------
+MinIO a retire ses images de Docker Hub en septembre 2026. Les services
+`minio` et `minio-init` du docker-compose ne peuvent plus se telecharger,
+ce qui faisait echouer le `docker compose up`.
+
+La decision propre : plus aucun serveur S3 local. Le stockage des fichiers
+bruts passe derriere un reglage STOCKAGE :
+  - "local" : dossier monte (dev, demo) -> volume `fichierdata`
+  - "s3"    : S3-compatible Scaleway (prod), sans changer le code
+  - "off"   : aucune copie (tests unitaires)
+
+CE QU'IL FAUT FAIRE
+------------------
+1. Extraire cette archive.
+2. Copier SON CONTENU (les fichiers et dossiers : docker-compose.yml,
+   .env.example, README.md, backend/) directement dans
+   C:\Project\Project ncshift
+   en acceptant le remplacement des 7 fichiers existants. Les chemins
+   de l'archive reproduisent exactement ceux du projet.
+3. Dans l'invite de commandes :
+
+   cd "C:\Project\Project ncshift"
+   git add -A
+   git commit -m "Fix compose : remplacement MinIO par stockage local en dev"
+   git push
+
+4. Relancer le stack :
+
+   docker compose up -d --build
+   docker compose ps
+
+   Il doit maintenant montrer QUATRE services (api, worker, db, redis),
+   plus le volume fichierdata. Plus de minio.
+5. Ouvrir http://localhost:8000 pour la demo.
+
+LISTE DES 7 FICHIERS REMPLACES
+-----------------------------
+docker-compose.yml                     (services minio/minio-init retires)
+.env.example                           (variables STOCKAGE=local, /data)
+README.md                              (architecture a jour)
+backend/app/config.py                  (reglage stockage s3|local|off)
+backend/app/ingestion/storage.py       (backend local en plus du S3)
+backend/app/ingestion/service.py       (appel du depot via le mode stockage)
+backend/tests/conftest.py              (STOCKAGE=off pour les tests)
+
+NOTE
+----
+Aucune ligne du schema de donnees ne change : la colonne s3_key de
+fichier_source sert d'adresse de stockage, qu'il s'agisse du S3 de prod
+ou du dossier local de dev.

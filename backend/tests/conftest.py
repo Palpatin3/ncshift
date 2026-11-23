@@ -1,9 +1,9 @@
 import os
 
 # Avant tout import applicatif : les tests tournent sur SQLite en mémoire,
-# sans S3 (l'ingestion doit être testable sans infrastructure).
+# sans stockage de fichiers (l'ingestion doit être testable sans infrastructure).
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
-os.environ["STOCKER_S3"] = "false"
+os.environ["STOCKAGE"] = "off"
 
 import pytest
 from sqlalchemy import create_engine, select

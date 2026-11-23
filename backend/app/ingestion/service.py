@@ -4,7 +4,7 @@ Mail, dossier partagé, API plus tard : tout passe par `enregistrer_fichier`,
 qui garantit, dans cet ordre :
   1. empreinte SHA-256 et dédoublonnage par (organisation, hash) ;
   2. détection du type par le contenu ;
-  3. dépôt S3 (si activé) ;
+  3. dépôt du fichier brut (S3 en prod, dossier local en dev) ;
   4. ligne de fichier_source + ligne d'audit `fichier_recu` ;
   5. si le fichier peut être une facture (PDF ou XML), ligne de facture
      dans l'état `recue`, avec sa ligne d'audit.
@@ -40,7 +40,7 @@ def empreinte(contenu: bytes) -> str:
     return hashlib.sha256(contenu).hexdigest()
 
 
-def _cle_s3(organisation_id, h: str, nom_fichier: str) -> str:
+def _cle_stockage(organisation_id, h: str, nom_fichier: str) -> str:
     base = f"{organisation_id}/{h[:2]}/{h}"
     nom = (nom_fichier or "sans-nom").replace("/", "_")[:180]
     return f"{base}/{nom}"
@@ -88,9 +88,9 @@ def enregistrer_fichier(
 
     type_detecte = detecter_type(nom_fichier, contenu)
 
-    s3_key = None
-    if settings.stocker_s3:
-        s3_key = televerser(contenu, _cle_s3(organisation_id, h, nom_fichier))
+    cle_stockage = None
+    if settings.stockage != "off":
+        cle_stockage = televerser(contenu, _cle_stockage(organisation_id, h, nom_fichier))
 
     fichier = FichierSource(
         organisation_id=organisation_id,
@@ -99,7 +99,7 @@ def enregistrer_fichier(
         sha256=h,
         type_detecte=type_detecte,
         taille_octets=len(contenu),
-        s3_key=s3_key,
+        s3_key=cle_stockage,  # colonne historique : adresse de stockage, S3 ou local
         message_id=message_id,
         recu_le=recu_le,
     )
