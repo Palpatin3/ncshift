@@ -32,9 +32,25 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(console_router)
 
-_PAGE_CONSOLE = Path(__file__).parent / "static" / "console.html"
+_DOSSIER_STATIQUE = Path(__file__).parent / "static"
+_PAGE_CONSOLE = _DOSSIER_STATIQUE / "console.html"
+_LOGO = _DOSSIER_STATIQUE / "logo.png"
+_FAVICON = _DOSSIER_STATIQUE / "favicon.png"
 
 
 @app.get("/", include_in_schema=False)
 def console():
     return FileResponse(_PAGE_CONSOLE)
+
+
+# La marque ne change pas à chaque déploiement : cache long, Immutable
+# mais FileResponse ne pose pas encore les headers de cache (sprint 6 ;
+# le logo est servi au pire une fois par build chez chaque visiteur).
+@app.get("/logo.png", include_in_schema=False)
+def logo():
+    return FileResponse(_LOGO, media_type="image/png")
+
+
+@app.get("/favicon.png", include_in_schema=False)
+def favicon():
+    return FileResponse(_FAVICON, media_type="image/png")
