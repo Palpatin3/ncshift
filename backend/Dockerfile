@@ -1,6 +1,5 @@
 FROM python:3.12-slim
 
-# uvicorn/arq : pas de bash pour simplifier ; curl utile pour la sonde /healthz
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -9,8 +8,11 @@ COPY pyproject.toml ./
 COPY app ./app
 RUN pip install --no-cache-dir .
 
-# Pas de root applicatif
-RUN useradd --create-home ncshift && chown -R ncshift /srv
+# Utilisateur applicatif + dossier des fichiers bruts accessible
+# (le volume fichierdata hérite de ce propriétaire à sa création)
+RUN useradd --create-home ncshift \
+    && mkdir -p /data \
+    && chown -R ncshift /srv /data
 USER ncshift
 
 EXPOSE 8000
