@@ -7,7 +7,7 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from ..core.org import organisation_defaut
-from ..db import SessionLocal, engine, Base
+from ..db import SessionLocal, initialiser_base
 from ..ingestion.folder_watcher import demarrer_watcher
 from ..ingestion.imap_poller import traiter_boite
 from ..config import settings
@@ -22,18 +22,19 @@ async def poll_imap(context) -> dict:
     return stats
 
 
-async def demarrage(context) -> None:
-    # Les tables sont créées si absentes (sprint 1 ; Alembic avant prod)
-    Base.metadata.create_all(bind=engine)
-    if settings.watch_folder:
-        context["observer"] = demarrer_watcher(organisation_id=_id_org_defaut())
-    elif settings.imap_host is None:
-        pass  # mode console : aucun canal actif, l'ingestion passe par l'API
-
-
 def _id_org_defaut():
     with SessionLocal() as db:
         return organisation_defaut(db).id
+
+
+async def demarrage(context) -> None:
+    # Les tables sont créées si absentes, sous verrou consultatif :
+    # pas de course avec l'api qui fait de son côté au même instant.
+    # Alembic remplacera ceci avant la prod (sprint 6).
+    initialiser_base()
+    if settings.watch_folder:
+        context["observer"] = demarrer_watcher(organisation_id=_id_org_defaut())
+    # Sinon, mode console : aucun canal actif, l'ingestion passe par l'API.
 
 
 async def arret(context) -> None:

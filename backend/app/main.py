@@ -8,13 +8,15 @@ from fastapi.responses import FileResponse
 
 from . import __version__
 from .api.routes import console_router, health_router
-from .db import Base, engine
+from .db import initialiser_base
 
 
 @asynccontextmanager
 async def demarrage(arret):
-    # Sprint 1 : create_all au démarrage. Alembic avant la prod (sprint 6).
-    Base.metadata.create_all(bind=engine)
+    # Sprint 1 : create_all au démarrage, protégé par un verrou consultatif
+    # (api et worker démarrent ensemble sur une base vierge).
+    # Alembic avant la prod (sprint 6).
+    initialiser_base()
     yield
 
 
